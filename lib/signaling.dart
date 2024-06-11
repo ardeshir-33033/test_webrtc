@@ -453,6 +453,8 @@ class Signaling {
           'ice': iceCandidate.toMap(),
         };
 
+        print(iceCandidate.toMap());
+
         await FirebaseFirestore.instance
             .collection(
               collectionVideoCall,
