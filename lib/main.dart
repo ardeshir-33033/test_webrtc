@@ -1,6 +1,11 @@
+import 'dart:convert';
 import 'dart:math';
 
+import 'package:WebRtcSIR/app_global_data.dart';
+import 'package:WebRtcSIR/call_model.dart';
+import 'package:WebRtcSIR/messaging_client.dart';
 import 'package:WebRtcSIR/snack_msg.dart';
+import 'package:WebRtcSIR/web_socket_connection.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background/flutter_background.dart';
@@ -67,7 +72,8 @@ class _MyHomePageState extends State<MyHomePage> {
       String.fromCharCodes(Iterable.generate(
           length, (index) => _chars.codeUnitAt(_rnd.nextInt(_chars.length))));
 
-  final signaling = Signaling(localDisplayName: getRandomString(20));
+  MessagingClient messagingClient = MessagingClient(WebSocketConnection());
+  late Signaling signaling;
 
   final localRenderer = RTCVideoRenderer();
   final Map<String, RTCVideoRenderer> remoteRenderers = {};
@@ -81,7 +87,10 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-
+    signaling = Signaling(
+        localDisplayName: getRandomString(20),
+        messagingClient: messagingClient);
+    messagingClient.initState(signaling);
     signaling.onAddLocalStream = (peerUuid, displayName, stream) {
       setState(() {
         localRenderer.srcObject = stream;
@@ -180,7 +189,14 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() => error = false);
 
     await signaling.reOpenUserMedia();
-    await signaling.join(roomId);
+    await signaling.startCall();
+
+    messagingClient.sendSignal(
+        [AppGlobalData.opponentUserId],
+        CallModel(
+            callCommand: CallCommand.incoming,
+            signalType: SignalType.call,
+            webRtc: WebRtcModel(peers: signaling.callPeers)));
   }
 
   Future<void> hangUp(bool exit) async {
@@ -243,7 +259,24 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ),
               ],
-              if (localRenderOk && signaling.isJoined()) ...[
+              FloatingActionButton(
+                tooltip: 'Start call',
+                child: const Icon(Icons.call),
+                backgroundColor: Colors.green,
+                onPressed: () async => await doTry(
+                  runAsync: () => join(),
+                  onError: () => hangUp(false),
+                ),
+              ),
+              FloatingActionButton(
+                tooltip: 'Hangup',
+                backgroundColor: Colors.red,
+                child: const Icon(Icons.call_end),
+                onPressed: () => hangUp(false),
+              ),
+              if (localRenderOk
+                  // && signaling.isJoined()
+                  ) ...[
                 FloatingActionButton(
                   tooltip: signaling.isScreenSharing()
                       ? 'Change screen sharing'

@@ -1,30 +1,22 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:WebRtcSIR/call_model.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:get/get.dart';
-import 'package:messaging_core/core/app_states/app_global_data.dart';
-import 'package:messaging_core/core/enums/change_message_modes.dart';
-import 'package:messaging_core/core/enums/receiver_type.dart';
-import 'package:messaging_core/core/env/environment.dart';
-import 'package:messaging_core/core/services/network/websocket/messaging_client.dart';
-import 'package:messaging_core/features/chat/data/models/call_model.dart';
-import 'package:messaging_core/features/chat/data/models/change_message_model.dart';
-import 'package:messaging_core/features/chat/domain/entities/content_model.dart';
-import 'package:messaging_core/features/chat/presentation/manager/call_controller.dart';
-import 'package:messaging_core/features/chat/presentation/manager/chat_controller.dart';
-import 'package:messaging_core/features/chat/presentation/manager/online_users_controller.dart';
-import 'package:messaging_core/locator.dart';
+import 'package:WebRtcSIR/signaling.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:socket_io_client/socket_io_client.dart';
+
+import 'app_global_data.dart';
 
 class WebSocketConnection {
   IO.Socket? channel;
   bool isConnected = false;
   bool settingSocketUp = false;
+  late Signaling signaling;
 
-  void initState() {
+  void initState(Signaling sig) {
     settingSocketUp = true;
+    signaling = sig;
     initChannel();
   }
 
@@ -37,13 +29,23 @@ class WebSocketConnection {
   Future initChannel() async {
     // Map<String , dynamic>  headers = HttpHeader.setHeaders(HttpHeaderType.webSocket);
 
-    channel = IO.io(Environment.websocketUrl,
+    channel = IO.io("https://socket.coopcor.com",
         IO.OptionBuilder().setTransports(["websocket"]).build());
-    channel?.onConnect((data) {
+    channel?.onConnect((data) async {
       isConnected = true;
       settingSocketUp = false;
       print("Socket Id: ${channel!.id}");
-      locator<MessagingClient>().sendAddOnlineUser();
+
+      Map deviceInfo = (await DeviceInfoPlugin().deviceInfo).data;
+      String? brand = deviceInfo['brand'];
+      if (brand == "samsung") {
+        AppGlobalData.userId = 1;
+        AppGlobalData.opponentUserId = 391;
+      } else {
+        AppGlobalData.userId = 391;
+        AppGlobalData.opponentUserId = 1;
+      }
+      sendAddOnlineUser();
 
       print(
           "-----------------   Successful Connection   $data  -----------------");
@@ -73,8 +75,16 @@ class WebSocketConnection {
 
     channel?.on("signaling", (data) {
       print(data);
-      if(data["signalType"] == SignalType.webRtc.toString()) {
+      CallModel call = CallModel.fromJson(jsonDecode(data));
 
+      if (call.signalType.toJson() == SignalType.webRtc.toJson()) {
+        if (call.webRtc!.webRtcSignal == WebRtcSignals.description) {
+          signaling.manageSdp(call.webRtc!.webRtcConfig!);
+        } else if (call.webRtc!.webRtcSignal == WebRtcSignals.candidate) {
+          signaling.manageIce(call.webRtc!.webRtcConfig!);
+        }
+      } else {
+        signaling.join(call.webRtc!.peers!);
       }
       // CallModel call = CallModel.fromJson(jsonDecode(data));
       // locator<CallController>().receiveCallSignal(call);
@@ -132,6 +142,13 @@ class WebSocketConnection {
 
     channel?.on("addOnlineUser", (data) {
       print(data);
+    });
+  }
+
+  sendAddOnlineUser() async {
+    sendMessage("addOnlineUser", {
+      'userId': AppGlobalData.userId,
+      'categoryId': AppGlobalData.categoryId,
     });
   }
 

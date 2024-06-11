@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class CallModel {
   CallCommand callCommand;
   String? reason;
@@ -10,7 +12,7 @@ class CallModel {
   int? initiatorId;
   int? receiverId;
   bool? enableVideo;
-  Map<String, dynamic>? webRtcConfig;
+  WebRtcModel? webRtc;
   SignalType signalType;
 
   // ChatParentClass? chat;
@@ -27,7 +29,7 @@ class CallModel {
     this.callerName,
     this.receiverId,
     this.enableVideo,
-    this.webRtcConfig,
+    this.webRtc,
     this.signalType = SignalType.call,
     // this.chat,
   });
@@ -45,7 +47,8 @@ class CallModel {
       initiatorName: json['initiatorName'],
       receiverId: json['receiverId'],
       enableVideo: json['enableVideo'],
-      webRtcConfig: json['webRtcConfig'],
+      webRtc:
+          json['webRtc'] != null ? WebRtcModel.fromJson(json['webRtc']) : null,
       signalType: SignalType.fromJson(json['signalType']),
       // chat: json['chat'] != null
       //     ? ChatParentClass().fromCallJson(json['chat'])
@@ -66,7 +69,7 @@ class CallModel {
     data['initiatorName'] = initiatorName;
     data['receiverId'] = receiverId;
     data['enableVideo'] = enableVideo;
-    data['webRtcConfig'] = webRtcConfig;
+    data['webRtc'] = webRtc?.toJson();
     data['signalType'] = signalType.toJson();
     // data['chat'] = chat?.toJsonCall();
     return data;
@@ -144,5 +147,65 @@ enum SignalType {
       default:
         return '';
     }
+  }
+}
+
+enum WebRtcSignals {
+  description,
+  candidate;
+
+  static WebRtcSignals fromJson(String name) {
+    switch (name) {
+      case 'description':
+        return WebRtcSignals.description;
+      case 'candidate':
+        return WebRtcSignals.candidate;
+
+      default:
+        throw Exception('Unknown WebRtcSignals: $name');
+    }
+  }
+
+  String toJson() {
+    switch (this) {
+      case WebRtcSignals.description:
+        return 'description';
+      case WebRtcSignals.candidate:
+        return 'candidate';
+      default:
+        return '';
+    }
+  }
+}
+
+class WebRtcModel {
+  Map<String, dynamic>? webRtcConfig;
+  WebRtcSignals? webRtcSignal;
+  List<Map<String, dynamic>>? peers;
+
+  WebRtcModel({
+    this.webRtcConfig,
+    this.webRtcSignal,
+    this.peers,
+  });
+
+  static WebRtcModel fromJson(Map<String, dynamic> json) {
+    return WebRtcModel(
+      webRtcConfig: json['webRtcConfig'],
+      webRtcSignal: json['webRtcSignal'] != null
+          ? WebRtcSignals.fromJson(json['webRtcSignal'])
+          : null,
+      peers: json['peers'] != null
+          ? List<Map<String, dynamic>>.from(jsonDecode(json['peers']))
+          : [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['webRtcConfig'] = webRtcConfig;
+    data['webRtcSignal'] = webRtcSignal?.toJson();
+    data['peers'] = peers != null ? jsonEncode(peers) : null;
+    return data;
   }
 }

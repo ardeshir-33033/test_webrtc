@@ -2,7 +2,11 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:WebRtcSIR/app_global_data.dart';
+import 'package:WebRtcSIR/call_model.dart';
+import 'package:WebRtcSIR/messaging_client.dart';
+import 'package:WebRtcSIR/web_socket_connection.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background/flutter_background.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -22,10 +26,12 @@ class Signaling {
       onConnectionConnected,
       onConnectionError;
   ErrorCallback? onGenericError;
+  MessagingClient messagingClient;
 
   // key is uuid, values are peer connection object and user defined display name string
   final Map<String, RTCPeerConnection> _peerConnections = {};
   final _peerBanned = HashSet<String>();
+  List<Map<String, dynamic>> callPeers = [];
 
   static const collectionVideoCall = 'videoCall';
   static const tableConnectionParamsFor = 'connectionParamsFor';
@@ -34,11 +40,11 @@ class Signaling {
   static const tableIce = 'ice';
 
   final String localDisplayName;
-  String? _localUuid, _appointmentId;
+  // String? _localUuid, _appointmentId;
 
   StreamSubscription? _listenerSdp, _listenerIce;
 
-  Signaling({required this.localDisplayName});
+  Signaling({required this.localDisplayName, required this.messagingClient});
 
   final _iceServers = {
     'iceServers': [
@@ -71,9 +77,9 @@ class Signaling {
     }
   }
 
-  bool isJoined() {
-    return _appointmentId != null;
-  }
+  // bool isJoined() {
+  //   return _appointmentId != null;
+  // }
 
   Future<void> switchCamera() async {
     if (!kIsWeb && _localStream != null) {
@@ -135,7 +141,7 @@ class Signaling {
     _listenerSdp = null;
     _listenerIce = null;
 
-    await stopScreenSharing();
+    // await stopScreenSharing();
 
     if (updateLocalVideo) {
       onAddLocalStream?.call('', localDisplayName, null);
@@ -148,7 +154,6 @@ class Signaling {
         await _localStream!.dispose();
         _localStream = null;
       }
-
     }
 
     for (final pc in _peerConnections.values) {
@@ -157,87 +162,105 @@ class Signaling {
 
     _peerConnections.clear();
     _peerBanned.clear();
+    callPeers.clear();
 
-    await _clearAllFirebaseData();
+    // await _clearAllFirebaseData();
 
-    _appointmentId = null;
+    // _appointmentId = null;
   }
 
-  Future<void> join(String appointmentId) async {
-    _appointmentId = appointmentId;
-    _localUuid = const Uuid().v1();
+  startCall() async {
+    // _appointmentId = appointmentId;
+    // _localUuid = const Uuid().v1();
 
     if (_localStream == null) {
       throw Exception('You can not start a call without the webcam opened');
     }
 
-    final peers = await FirebaseFirestore.instance
-        .collection(
-          collectionVideoCall,
-        )
-        .doc(_appointmentId)
-        .collection(tablePeers)
-        .where(
-          'uuid',
-          isNotEqualTo: _localUuid, // exclude my self
-        )
-        .get();
+    await _writePeer({
+      'uuid': AppGlobalData.userId.toString(),
+      'displayName': localDisplayName,
+      'created': DateTime.now().toString(),
+    });
 
-    for (final peer in peers.docs) {
-      await _helloEveryone(peer.data());
+    // _startListenSdp();
+  }
+
+  Future<void> join(List<Map<String, dynamic>> peers) async {
+    // _appointmentId = appointmentId;
+    // _localUuid = const Uuid().v1();
+
+    if (_localStream == null) {
+      throw Exception('You can not start a call without the webcam opened');
+    }
+
+    // final peers = await FirebaseFirestore.instance
+    //     .collection(
+    //       collectionVideoCall,
+    //     )
+    //     .doc(_appointmentId)
+    //     .collection(tablePeers)
+    //     .where(
+    //       'uuid',
+    //       isNotEqualTo: _localUuid, // exclude my self
+    //     )
+    //     .get();
+
+    for (final peer in peers) {
+      await _helloEveryone(peer);
     }
 
     // add my self to peers list
     await _writePeer({
-      'uuid': _localUuid,
+      'uuid': AppGlobalData.userId,
       'displayName': localDisplayName,
-      'created': FieldValue.serverTimestamp(),
+      'created': DateTime.now().toString(),
     });
 
-    _startListenSdp();
+    // _startListenSdp();
   }
 
-  void _startListenIce() {
-    // WebRTC ICE
-    _listenerIce ??= FirebaseFirestore.instance
-        .collection(
-          collectionVideoCall,
-        )
-        .doc(_appointmentId)
-        .collection(tableConnectionParamsFor)
-        .doc(_localUuid)
-        .collection(tableIce)
-        .orderBy('created')
-        .snapshots()
-        .listen(
-      (snapshot) {
-        for (final ice in snapshot.docs) {
-          _manageIce(ice.data());
-        }
-      },
-    );
-  }
+  // void _startListenIce() {
+  //   // WebRTC ICE
+  //   _listenerIce ??= FirebaseFirestore.instance
+  //       .collection(
+  //         collectionVideoCall,
+  //       )
+  //       .doc(_appointmentId)
+  //       .collection(tableConnectionParamsFor)
+  //       .doc(_localUuid)
+  //       .collection(tableIce)
+  //       .orderBy('created')
+  //       .snapshots()
+  //       .listen(
+  //     (snapshot) {
+  //       for (final ice in snapshot.docs) {
+  //         manageIce(ice.data());
+  //       }
+  //     },
+  //   );
+  // }
 
-  void _startListenSdp() {
-    // WebRTC SDP
-    _listenerSdp ??= FirebaseFirestore.instance
-        .collection(
-          collectionVideoCall,
-        )
-        .doc(_appointmentId)
-        .collection(tableConnectionParamsFor)
-        .doc(_localUuid)
-        .collection(tableSdp)
-        .orderBy('created')
-        .snapshots()
-        .listen(
-      (snapshot) {
-        for (final sdp in snapshot.docs) {
-          _manageSdp(sdp.data());
-        }
-      },
-    );
-  }
+  // void _startListenSdp() {
+  //   // WebRTC SDP
+  //   _listenerSdp ??= FirebaseFirestore.instance
+  //       .collection(
+  //         collectionVideoCall,
+  //       )
+  //       .doc(_appointmentId)
+  //       .collection(tableConnectionParamsFor)
+  //       .doc(_localUuid)
+  //       .collection(tableSdp)
+  //       .orderBy('created')
+  //       .snapshots()
+  //       .listen(
+  //     (snapshot) {
+  //       for (final sdp in snapshot.docs) {
+  //         manageSdp(sdp.data());
+  //       }
+  //     },
+  //   );
+  // }
 
   Future<void> _helloEveryone(Map<String, dynamic> peerData) async {
     final String peerId = peerData['uuid'];
@@ -274,7 +297,7 @@ class Signaling {
     return pc;
   }
 
-  Future<void> _manageSdp(Map<String, dynamic> receivedMsg) async {
+  Future<void> manageSdp(Map<String, dynamic> receivedMsg) async {
     if (receivedMsg.containsKey('sdp')) {
       final String fromPeerId = receivedMsg['uuid'];
       final String displayName = receivedMsg['displayName'];
@@ -294,7 +317,7 @@ class Signaling {
 
               await _createdDescription(
                   pc, await pc.createAnswer(), fromPeerId, 'answer');
-              _startListenIce();
+              // _startListenIce();
             }
           } else if ('answer' == sdpType) {
             // peer B enter room, that sent an Offer to peer A receive an Answer from peer A
@@ -309,7 +332,7 @@ class Signaling {
                 default:
                   await pc?.setRemoteDescription(
                       RTCSessionDescription(sdp['sdp'], sdp['type']));
-                  _startListenIce();
+                  // _startListenIce();
                   break;
               }
             }
@@ -321,7 +344,7 @@ class Signaling {
     }
   }
 
-  Future<void> _manageIce(Map<String, dynamic> receivedMsg) async {
+  Future<void> manageIce(Map<String, dynamic> receivedMsg) async {
     if (receivedMsg.containsKey('ice')) {
       final String fromPeerId = receivedMsg['uuid'];
       final String displayName = receivedMsg['displayName'];
@@ -357,22 +380,33 @@ class Signaling {
     await pc.setLocalDescription(description);
 
     final sdp = {
-      'uuid': _localUuid,
+      'uuid': AppGlobalData.userId.toString(),
       'displayName': localDisplayName,
-      'created': FieldValue.serverTimestamp(),
+      'created': DateTime.now().toString(),
       'sdpType': sdpType,
       'sdp': description.toMap(),
     };
 
-    await FirebaseFirestore.instance
-        .collection(
-          collectionVideoCall,
-        )
-        .doc(_appointmentId)
-        .collection(tableConnectionParamsFor)
-        .doc(destinationPeerId)
-        .collection(tableSdp)
-        .add(sdp);
+    messagingClient.sendSignal(
+        [int.parse(destinationPeerId)],
+        CallModel(
+          callCommand: CallCommand.accept,
+          signalType: SignalType.webRtc,
+          webRtc: WebRtcModel(
+            webRtcConfig: sdp,
+            webRtcSignal: WebRtcSignals.description,
+          ),
+        ));
+
+    // await FirebaseFirestore.instance
+    //     .collection(
+    //       collectionVideoCall,
+    //     )
+    //     .doc(_appointmentId)
+    //     .collection(tableConnectionParamsFor)
+    //     .doc(destinationPeerId)
+    //     .collection(tableSdp)
+    //     .add(sdp);
   }
 
   void _checkConnectionState(
@@ -447,21 +481,32 @@ class Signaling {
 
       if (iceCandidate.candidate?.isNotEmpty ?? false) {
         final ice = {
-          'uuid': _localUuid,
+          'uuid': AppGlobalData.userId.toString(),
           'displayName': localDisplayName,
-          'created': FieldValue.serverTimestamp(),
+          'created': DateTime.now().toString(),
           'ice': iceCandidate.toMap(),
         };
 
-        await FirebaseFirestore.instance
-            .collection(
-              collectionVideoCall,
-            )
-            .doc(_appointmentId)
-            .collection(tableConnectionParamsFor)
-            .doc(peerUuid)
-            .collection(tableIce)
-            .add(ice);
+        messagingClient.sendSignal(
+            [int.parse(peerUuid)],
+            CallModel(
+              callCommand: CallCommand.accept,
+              signalType: SignalType.webRtc,
+              webRtc: WebRtcModel(
+                webRtcConfig: ice,
+                webRtcSignal: WebRtcSignals.candidate,
+              ),
+            ));
+
+        // await FirebaseFirestore.instance
+        //     .collection(
+        //       collectionVideoCall,
+        //     )
+        //     .doc(_appointmentId)
+        //     .collection(tableConnectionParamsFor)
+        //     .doc(peerUuid)
+        //     .collection(tableIce)
+        //     .add(ice);
       }
     }
   }
@@ -500,46 +545,47 @@ class Signaling {
   }
 
   Future<void> _writePeer(Map<String, dynamic> msg) async {
-    await FirebaseFirestore.instance
-        .collection(
-          collectionVideoCall,
-        )
-        .doc(_appointmentId)
-        .collection(tablePeers)
-        .add(msg);
+    callPeers.add(msg);
+    // await FirebaseFirestore.instance
+    //     .collection(
+    //       collectionVideoCall,
+    //     )
+    //     .doc(_appointmentId)
+    //     .collection(tablePeers)
+    //     .add(msg);
   }
 
-  Future<void> _clearAllFirebaseData() async {
-    // remove me from peers
-    await FirebaseFirestore.instance
-        .collection(collectionVideoCall)
-        .doc(_appointmentId)
-        .collection(tablePeers)
-        .where(
-          'uuid',
-          isEqualTo: _localUuid,
-        )
-        .get()
-        .then(
-      (snapshot) async {
-        for (final peer in snapshot.docs) {
-          await peer.reference.delete();
-        }
-      },
-    );
-
-    // remove all params for me
-    final docRef = await FirebaseFirestore.instance
-        .collection(
-          collectionVideoCall,
-        )
-        .doc(_appointmentId)
-        .collection(tableConnectionParamsFor)
-        .doc(_localUuid)
-        .get();
-
-    await docRef.reference.delete();
-  }
+  // Future<void> _clearAllFirebaseData() async {
+  //   // remove me from peers
+  //   await FirebaseFirestore.instance
+  //       .collection(collectionVideoCall)
+  //       .doc(_appointmentId)
+  //       .collection(tablePeers)
+  //       .where(
+  //         'uuid',
+  //         isEqualTo: _localUuid,
+  //       )
+  //       .get()
+  //       .then(
+  //     (snapshot) async {
+  //       for (final peer in snapshot.docs) {
+  //         await peer.reference.delete();
+  //       }
+  //     },
+  //   );
+  //
+  //   // remove all params for me
+  //   final docRef = await FirebaseFirestore.instance
+  //       .collection(
+  //         collectionVideoCall,
+  //       )
+  //       .doc(_appointmentId)
+  //       .collection(tableConnectionParamsFor)
+  //       .doc(_localUuid)
+  //       .get();
+  //
+  //   await docRef.reference.delete();
+  // }
 
   Future<void> _replaceStream(MediaStream stream) async {
     final track = stream.getVideoTracks().first;
@@ -559,6 +605,7 @@ class Signaling {
       print('Audio tracks: ${stream.getAudioTracks().length}');
     }
 
-    onAddLocalStream?.call(_localUuid!, localDisplayName, stream);
+    onAddLocalStream?.call(
+        AppGlobalData.userId.toString()!, localDisplayName, stream);
   }
 }
