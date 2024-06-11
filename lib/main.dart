@@ -211,7 +211,7 @@ class _MyHomePageState extends State<MyHomePage> {
     await signaling.hangUp(exit);
     localRenderer.srcObject = null;
 
-    await localRenderer.dispose();
+    // await localRenderer.dispose();
     setState(() {
       disposeRemoteRenderers();
     });
@@ -247,18 +247,88 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
             ],
-            if (roomId.length > 2) ...[
-              if (error) ...[
+            if (error) ...[
+              FloatingActionButton(
+                tooltip: 'Retry call',
+                child: const Icon(Icons.add_call),
+                backgroundColor: Colors.green,
+                onPressed: () async => await doTry(
+                  runAsync: () => join(),
+                  onError: () => hangUp(false),
+                ),
+              ),
+            ],
+            FloatingActionButton(
+              tooltip: 'Start call',
+              child: const Icon(Icons.call),
+              backgroundColor: Colors.green,
+              onPressed: () async => await doTry(
+                runAsync: () => join(),
+                onError: () => hangUp(false),
+              ),
+            ),
+            FloatingActionButton(
+              tooltip: 'Hangup',
+              backgroundColor: Colors.red,
+              child: const Icon(Icons.call_end),
+              onPressed: () => hangUp(false),
+            ),
+            if (localRenderOk
+                // && signaling.isJoined()
+                ) ...[
+              FloatingActionButton(
+                tooltip: signaling.isScreenSharing()
+                    ? 'Change screen sharing'
+                    : 'Start screen sharing',
+                backgroundColor:
+                    signaling.isScreenSharing() ? Colors.amber : Colors.grey,
+                child: const Icon(Icons.screen_share_outlined),
+                onPressed: () async => await doTry(
+                  runAsync: () => signaling.screenSharing(),
+                ),
+              ),
+              if (signaling.isScreenSharing()) ...[
                 FloatingActionButton(
-                  tooltip: 'Retry call',
-                  child: const Icon(Icons.add_call),
-                  backgroundColor: Colors.green,
-                  onPressed: () async => await doTry(
-                    runAsync: () => join(),
-                    onError: () => hangUp(false),
-                  ),
+                  tooltip: 'Stop screen sharing',
+                  backgroundColor: Colors.redAccent,
+                  child: const Icon(Icons.stop_screen_share_outlined),
+                  onPressed: () => signaling.stopScreenSharing(),
                 ),
               ],
+              if (cameraCountSnap.hasData &&
+                  cameraCountSnap.requireData > 1) ...[
+                FloatingActionButton(
+                  tooltip: 'Switch camera',
+                  backgroundColor: Colors.grey,
+                  child: const Icon(Icons.switch_camera),
+                  onPressed: () async => await doTry(
+                    runAsync: () => signaling.switchCamera(),
+                  ),
+                )
+              ],
+              FloatingActionButton(
+                tooltip: isMicMuted() ? 'Un-mute mic' : 'Mute mic',
+                backgroundColor: isMicMuted() ? Colors.redAccent : Colors.grey,
+                child: isMicMuted()
+                    ? const Icon(Icons.mic_off)
+                    : const Icon(Icons.mic_outlined),
+                onPressed: () => doTry(
+                  runSync: () => setState(() => signaling.muteMic()),
+                ),
+              ),
+              FloatingActionButton(
+                tooltip: 'Hangup',
+                backgroundColor: Colors.red,
+                child: const Icon(Icons.call_end),
+                onPressed: () => hangUp(false),
+              ),
+              FloatingActionButton(
+                tooltip: 'Exit',
+                backgroundColor: Colors.red,
+                child: const Icon(Icons.exit_to_app),
+                onPressed: () => hangUp(true),
+              ),
+            ] else ...[
               FloatingActionButton(
                 tooltip: 'Start call',
                 child: const Icon(Icons.call),
@@ -268,79 +338,6 @@ class _MyHomePageState extends State<MyHomePage> {
                   onError: () => hangUp(false),
                 ),
               ),
-              FloatingActionButton(
-                tooltip: 'Hangup',
-                backgroundColor: Colors.red,
-                child: const Icon(Icons.call_end),
-                onPressed: () => hangUp(false),
-              ),
-              if (localRenderOk
-                  // && signaling.isJoined()
-                  ) ...[
-                FloatingActionButton(
-                  tooltip: signaling.isScreenSharing()
-                      ? 'Change screen sharing'
-                      : 'Start screen sharing',
-                  backgroundColor:
-                      signaling.isScreenSharing() ? Colors.amber : Colors.grey,
-                  child: const Icon(Icons.screen_share_outlined),
-                  onPressed: () async => await doTry(
-                    runAsync: () => signaling.screenSharing(),
-                  ),
-                ),
-                if (signaling.isScreenSharing()) ...[
-                  FloatingActionButton(
-                    tooltip: 'Stop screen sharing',
-                    backgroundColor: Colors.redAccent,
-                    child: const Icon(Icons.stop_screen_share_outlined),
-                    onPressed: () => signaling.stopScreenSharing(),
-                  ),
-                ],
-                if (cameraCountSnap.hasData &&
-                    cameraCountSnap.requireData > 1) ...[
-                  FloatingActionButton(
-                    tooltip: 'Switch camera',
-                    backgroundColor: Colors.grey,
-                    child: const Icon(Icons.switch_camera),
-                    onPressed: () async => await doTry(
-                      runAsync: () => signaling.switchCamera(),
-                    ),
-                  )
-                ],
-                FloatingActionButton(
-                  tooltip: isMicMuted() ? 'Un-mute mic' : 'Mute mic',
-                  backgroundColor:
-                      isMicMuted() ? Colors.redAccent : Colors.grey,
-                  child: isMicMuted()
-                      ? const Icon(Icons.mic_off)
-                      : const Icon(Icons.mic_outlined),
-                  onPressed: () => doTry(
-                    runSync: () => setState(() => signaling.muteMic()),
-                  ),
-                ),
-                FloatingActionButton(
-                  tooltip: 'Hangup',
-                  backgroundColor: Colors.red,
-                  child: const Icon(Icons.call_end),
-                  onPressed: () => hangUp(false),
-                ),
-                FloatingActionButton(
-                  tooltip: 'Exit',
-                  backgroundColor: Colors.red,
-                  child: const Icon(Icons.exit_to_app),
-                  onPressed: () => hangUp(true),
-                ),
-              ] else ...[
-                FloatingActionButton(
-                  tooltip: 'Start call',
-                  child: const Icon(Icons.call),
-                  backgroundColor: Colors.green,
-                  onPressed: () async => await doTry(
-                    runAsync: () => join(),
-                    onError: () => hangUp(false),
-                  ),
-                ),
-              ],
             ],
           ],
         ),

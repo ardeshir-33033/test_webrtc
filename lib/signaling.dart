@@ -362,6 +362,7 @@ class Signaling {
                 'Received ICE candidate, but $displayName have not a peer connection');
           }
         } catch (iceE) {
+          print("Error in $iceE");
           onGenericError?.call('Error in ICE routine from $displayName: $iceE');
         }
       }
