@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "142599186501",
+    "project_id": "test-tap-f2390",
+    "storage_bucket": "test-tap-f2390.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:142599186501:android:72f5423d7f918405f2db2c",
+        "android_client_info": {
+          "package_name": "com.example.test_tup"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWrlrMDWEDnmlEFW1Gg-0uxSBMme_9ZBU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
