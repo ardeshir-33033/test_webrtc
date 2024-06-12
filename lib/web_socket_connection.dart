@@ -81,7 +81,9 @@ class WebSocketConnection {
         if (call.webRtc!.webRtcSignal == WebRtcSignals.description) {
           signaling.manageSdp(call.webRtc!.webRtcConfig!);
         } else if (call.webRtc!.webRtcSignal == WebRtcSignals.candidate) {
-          signaling.manageIce(call.webRtc!.webRtcConfig!);
+          Future.delayed(const Duration(seconds: 4), () {
+            signaling.manageIce(call.webRtc!.webRtcConfig!);
+          });
         }
       } else {
         signaling.join(call.webRtc!.peers!);
