@@ -146,6 +146,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void disposeRemoteRenderers() {
     for (final remoteRenderer in remoteRenderers.values) {
+      if (remoteRenderer.srcObject != null) {
+        remoteRenderer.srcObject!.getTracks().forEach((track) => track.stop());
+      }
       remoteRenderer.dispose();
     }
 

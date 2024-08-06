@@ -141,9 +141,12 @@ class Signaling {
       onAddLocalStream?.call('', localDisplayName, null);
 
       if (_localStream != null) {
-        for (final track in _localStream!.getTracks()) {
-          await track.stop();
+        if (_localStream != null) {
+          _localStream!.getTracks().forEach((track) => track.stop());
         }
+        // for (final track in _localStream!.getTracks()) {
+        //   await track.stop();
+        // }
 
         await _localStream!.dispose();
         _localStream = null;
