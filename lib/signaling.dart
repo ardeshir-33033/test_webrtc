@@ -151,7 +151,6 @@ class Signaling {
         await _localStream!.dispose();
         _localStream = null;
       }
-
     }
 
     for (final pc in _peerConnections.values) {
@@ -170,9 +169,9 @@ class Signaling {
     _appointmentId = appointmentId;
     _localUuid = const Uuid().v1();
 
-    if (_localStream == null) {
-      throw Exception('You can not start a call without the webcam opened');
-    }
+    // if (_localStream == null) {
+    //   throw Exception('You can not start a call without the webcam opened');
+    // }
 
     final peers = await FirebaseFirestore.instance
         .collection(
@@ -191,11 +190,13 @@ class Signaling {
     }
 
     // add my self to peers list
-    await _writePeer({
-      'uuid': _localUuid,
-      'displayName': localDisplayName,
-      'created': FieldValue.serverTimestamp(),
-    });
+    if (_localStream != null) {
+      await _writePeer({
+        'uuid': _localUuid,
+        'displayName': localDisplayName,
+        'created': FieldValue.serverTimestamp(),
+      });
+    }
 
     _startListenSdp();
   }
@@ -270,8 +271,10 @@ class Signaling {
     pc.onIceConnectionState =
         (event) => _checkConnectionState(event, fromPeerId, displayName);
 
-    for (final track in _localStream!.getTracks()) {
-      await pc.addTrack(track, _localStream!);
+    if (_localStream != null) {
+      for (final track in _localStream!.getTracks()) {
+        await pc.addTrack(track, _localStream!);
+      }
     }
 
     return pc;

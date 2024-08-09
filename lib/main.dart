@@ -126,8 +126,6 @@ class _MyHomePageState extends State<MyHomePage> {
       SnackMsg.showError(context, errorText);
       error = true;
     };
-
-    initCamera();
   }
 
   @override
@@ -137,6 +135,11 @@ class _MyHomePageState extends State<MyHomePage> {
     disposeRemoteRenderers();
 
     super.dispose();
+  }
+
+  Future createSession() async {
+    await initCamera();
+    join();
   }
 
   Future<void> initCamera() async {
@@ -182,7 +185,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> join() async {
     setState(() => error = false);
 
-    await signaling.reOpenUserMedia();
+    // await signaling.reOpenUserMedia();
     await signaling.join(roomId);
   }
 
@@ -224,7 +227,9 @@ class _MyHomePageState extends State<MyHomePage> {
         builder: (context, cameraCountSnap) => Wrap(
           spacing: 15,
           children: [
-            if (!localRenderOk) ...[
+            // if (!localRenderOk)
+              ...
+            [
               FloatingActionButton(
                 tooltip: 'Open camera',
                 backgroundColor: Colors.redAccent,
@@ -246,7 +251,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ),
               ],
-              if (localRenderOk && signaling.isJoined()) ...[
+              // if (localRenderOk && signaling.isJoined())
+                ...[
                 FloatingActionButton(
                   tooltip: signaling.isScreenSharing()
                       ? 'Change screen sharing'
@@ -300,9 +306,20 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: const Icon(Icons.exit_to_app),
                   onPressed: () => hangUp(true),
                 ),
-              ] else ...[
+              ] ,
+    // else
+    //             ...[
                 FloatingActionButton(
-                  tooltip: 'Start call',
+                  tooltip: 'Create call',
+                  child: const Icon(Icons.create_new_folder),
+                  backgroundColor: Colors.yellow,
+                  onPressed: () async => await doTry(
+                    runAsync: () => createSession(),
+                    onError: () => hangUp(false),
+                  ),
+                ),
+                FloatingActionButton(
+                  tooltip: 'Join call',
                   child: const Icon(Icons.call),
                   backgroundColor: Colors.green,
                   onPressed: () async => await doTry(
@@ -311,7 +328,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ),
               ],
-            ],
+            // ],
           ],
         ),
       ),
