@@ -126,6 +126,7 @@ class _MyHomePageState extends State<MyHomePage> {
       SnackMsg.showError(context, errorText);
       error = true;
     };
+    // initCamera();
   }
 
   @override
